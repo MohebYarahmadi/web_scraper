@@ -1,5 +1,7 @@
 import requests
 import selectorlib
+import smtplib, ssl
+import os
 
 # This script scrapes a webpage for tour information and sends an email if new tours are found.
 # It uses the SelectorLib library to extract data from the HTML source.
@@ -33,7 +35,16 @@ def extract_data(source):
     return value
 
 
-def send_email():
+def send_email(msg):
+    host = 'smtp.gmail.com'
+    port = 465
+    sender = 'momobitcoin1986@gmail.com'
+    password = '**************'
+    reciever = 'momobitcoin1986@gmail.com'
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(host, port, context=context) as server:
+        server.login(sender, password)
+        server.sendmail(sender, reciever, msg)
     print("Email sent!")
 
 
@@ -43,7 +54,7 @@ def store(data):
         file.write(data + "\n")
 
 
-def read_file(data):
+def read_file():
     """Read the file and return its contents"""
     with open("data.txt", "r") as file:
         return file.read()
@@ -52,9 +63,9 @@ if __name__ == "__main__":
     scraped = scrape(URL)
     ex_data = extract_data(scraped)
     print(ex_data)
-    store(ex_data)
-    content = read_file(ex_data)
+    content = read_file()
     # Check if the data is not already in the file
     if ex_data != "No upcoming tours":
         if ex_data not in content:
-            send_email()
+            store(ex_data)
+            send_email(msg=f"Hey new event founded.\n{ex_data}")
