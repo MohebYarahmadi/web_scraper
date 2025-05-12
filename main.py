@@ -3,6 +3,7 @@ import selectorlib
 import smtplib, ssl
 import os
 import time
+import sqlite3
 
 # This script scrapes a webpage for tour information and sends an email if new tours are found.
 # It uses the SelectorLib library to extract data from the HTML source.
@@ -12,6 +13,8 @@ URL = 'http://programmer100.pythonanywhere.com/tours/'
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
+# Stablish a connection to the database
+con = sqlite3.connect('data.db')
 
 def scrape(url):
     """Scrape the page source"""
@@ -40,7 +43,7 @@ def send_email(msg):
     host = 'smtp.gmail.com'
     port = 465
     sender = 'momobitcoin1986@gmail.com'
-    password = '**************'
+    password = '***********'
     reciever = 'momobitcoin1986@gmail.com'
     context = ssl.create_default_context()
     with smtplib.SMTP_SSL(host, port, context=context) as server:
@@ -54,22 +57,41 @@ def store(data):
     with open("data.txt", "a") as file: # Open the file in append mode
         file.write(data + "\n")
 
+def store_db(extracted):
+    row = extracted.split(",")
+    row = [item.strip() for item in row]
+    cursor = con.cursor()
+    cursor.execute("INSERT INTO events VALUES(?,?,?)", row)
+    con.commit()    
+
 
 def read_file():
     """Read the file and return its contents"""
     with open("data.txt", "r") as file:
         return file.read()
 
+def read_db(extracted):
+    row = extracted.split(",")
+    row = [item.strip() for item in row]
+    print(row)
+    band, city, date = row
+    cursor = con.cursor()
+    cursor.execute("SELECT * FROM events WHERE band=? AND city=? AND date=?",
+                    (band, city, date)
+                    )
+    rows = cursor.fetchall()
+    return rows
+
 if __name__ == "__main__":
     while True:
-         scraped = scrape(URL)
+        scraped = scrape(URL)
         ex_data = extract_data(scraped)
         print(ex_data)
-        content = read_file()
         # Check if the data is not already in the file
         if ex_data != "No upcoming tours":
-            if ex_data not in content:
-                store(ex_data)
+            row = read_db(ex_data)
+            if not row:
+                store_db(ex_data)
                 send_email(msg=f"Hey new event founded.\n{ex_data}")
         time.sleep(10)
         # You can use pythonanywhere too
