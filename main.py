@@ -16,40 +16,43 @@ HEADERS = {
 # Stablish a connection to the database
 con = sqlite3.connect('data.db')
 
-def scrape(url):
-    """Scrape the page source"""
-    # Make a GET request to the URL 
-    response = requests.get(url, headers=HEADERS)
-    # Check if the request was successful
-    if response.status_code != 200:
-        print(f"Failed to retrieve data: {response.status_code}")
-        return None
-    source = response.text
-    return source
+
+class Events:
+    def scrape(self, url):
+        """Scrape the page source"""
+        # Make a GET request to the URL 
+        response = requests.get(url, headers=HEADERS)
+        # Check if the request was successful
+        if response.status_code != 200:
+            print(f"Failed to retrieve data: {response.status_code}")
+            return None
+        source = response.text
+        return source
+    
+    
+    def extract_data(self, source):
+        """Extract data from the page source"""
+        # Create a SelectorLib extractor
+        # The YAML file should contain the selector for the data you want to extract
+        extractor = selectorlib.Extractor.from_yaml_file("extract.yaml")
+        # Extract the data using the extractor
+        # The "tours" key should match the key in your YAML file
+        value = extractor.extract(source)["tours"]
+        return value
 
 
-def extract_data(source):
-    """Extract data from the page source"""
-    # Create a SelectorLib extractor
-    # The YAML file should contain the selector for the data you want to extract
-    extractor = selectorlib.Extractor.from_yaml_file("extract.yaml")
-    # Extract the data using the extractor
-    # The "tours" key should match the key in your YAML file
-    value = extractor.extract(source)["tours"]
-    return value
-
-
-def send_email(msg):
-    host = 'smtp.gmail.com'
-    port = 465
-    sender = 'momobitcoin1986@gmail.com'
-    password = '***********'
-    reciever = 'momobitcoin1986@gmail.com'
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(host, port, context=context) as server:
-        server.login(sender, password)
-        server.sendmail(sender, reciever, msg)
-    print("Email sent!")
+class Mailing:
+    def send(self, msg):
+        host = 'smtp.gmail.com'
+        port = 465
+        sender = 'momobitcoin1986@gmail.com'
+        password = '***********'
+        reciever = 'momobitcoin1986@gmail.com'
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(host, port, context=context) as server:
+            server.login(sender, password)
+            server.sendmail(sender, reciever, msg)
+        print("Email sent!")
 
 
 def store(data):
@@ -83,15 +86,17 @@ def read_db(extracted):
     return rows
 
 if __name__ == "__main__":
+    event = Events()
+    mail = Mailing()
     while True:
-        scraped = scrape(URL)
-        ex_data = extract_data(scraped)
+        scraped = event.scrape(URL)
+        ex_data = event.extract_data(scraped)
         print(ex_data)
         # Check if the data is not already in the file
         if ex_data != "No upcoming tours":
             row = read_db(ex_data)
             if not row:
                 store_db(ex_data)
-                send_email(msg=f"Hey new event founded.\n{ex_data}")
+                mail.send(msg=f"Hey new event founded.\n{ex_data}")
         time.sleep(10)
         # You can use pythonanywhere too
