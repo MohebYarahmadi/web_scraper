@@ -13,8 +13,6 @@ URL = 'http://programmer100.pythonanywhere.com/tours/'
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
-# Stablish a connection to the database
-con = sqlite3.connect('data.db')
 
 
 class Events:
@@ -42,61 +40,75 @@ class Events:
 
 
 class Mailing:
+    def __init__(self):
+        self.host = 'smtp.gmail.com'
+        self.port = 465
+        self.sender = 'momobitcoin1986@gmail.com'
+        self.password = '**********'
+        self.reciever = 'momobitcoin1986@gmail.com'
+        print("Mailing init function")
+        
     def send(self, msg):
-        host = 'smtp.gmail.com'
-        port = 465
-        sender = 'momobitcoin1986@gmail.com'
-        password = '***********'
-        reciever = 'momobitcoin1986@gmail.com'
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(host, port, context=context) as server:
-            server.login(sender, password)
-            server.sendmail(sender, reciever, msg)
+        with smtplib.SMTP_SSL(self.host, self.port, context=context) as server:
+            server.login(self.sender, self.password)
+            server.sendmail(self.sender, self.reciever, msg)
         print("Email sent!")
 
 
-def store(data):
-    """Store data in a file"""
-    with open("data.txt", "a") as file: # Open the file in append mode
-        file.write(data + "\n")
+class TextDB:
+    def __init__(self, filepath):
+        self.filepath = filepath
+        
+    def store(self, data):
+        """Store data in a file"""
+        with open(self.filepath, "a") as file: # Open the file in append mode
+            file.write(data + "\n")
+    
+    
+    def read_file(self):
+        """Read the file and return its contents"""
+        with open(self.filepath, "r") as file:
+            return file.read()
 
-def store_db(extracted):
-    row = extracted.split(",")
-    row = [item.strip() for item in row]
-    cursor = con.cursor()
-    cursor.execute("INSERT INTO events VALUES(?,?,?)", row)
-    con.commit()    
 
+class Database:
+    def __init__(self, database_path):
+        self.con = sqlite3.connect(database_path)
+        
+    def read(self, extracted):
+        row = extracted.split(",")
+        row = [item.strip() for item in row]
+        print(row)
+        band, city, date = row
+        cursor = self.con.cursor()
+        cursor.execute("SELECT * FROM events WHERE band=? AND city=? AND date=?",
+                        (band, city, date)
+                        )
+        rows = cursor.fetchall()
+        return rows
 
-def read_file():
-    """Read the file and return its contents"""
-    with open("data.txt", "r") as file:
-        return file.read()
+    def store(self, extracted):
+        row = extracted.split(",")
+        row = [item.strip() for item in row]
+        cursor = self.con.cursor()
+        cursor.execute("INSERT INTO events VALUES(?,?,?)", row)
+        self.con.commit()
 
-def read_db(extracted):
-    row = extracted.split(",")
-    row = [item.strip() for item in row]
-    print(row)
-    band, city, date = row
-    cursor = con.cursor()
-    cursor.execute("SELECT * FROM events WHERE band=? AND city=? AND date=?",
-                    (band, city, date)
-                    )
-    rows = cursor.fetchall()
-    return rows
 
 if __name__ == "__main__":
     event = Events()
     mail = Mailing()
+    db = Database('data.db')
     while True:
         scraped = event.scrape(URL)
         ex_data = event.extract_data(scraped)
         print(ex_data)
         # Check if the data is not already in the file
         if ex_data != "No upcoming tours":
-            row = read_db(ex_data)
+            row = db.read(ex_data)
             if not row:
-                store_db(ex_data)
+                db.store(ex_data)
                 mail.send(msg=f"Hey new event founded.\n{ex_data}")
         time.sleep(10)
         # You can use pythonanywhere too
